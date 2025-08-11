@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C2C Latency Visualizer</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 2em;
+        }
+        h1 {
+            color: #333;
+        }
+        textarea {
+            width: 100%;
+            max-width: 600px;
+            height: 150px;
+            margin-bottom: 1em;
+        }
+        button {
+            padding: 10px 15px;
+            font-size: 1em;
+            cursor: pointer;
+        }
+        #heatmap {
+            margin-top: 2em;
+            overflow-x: auto;
+        }
+        .heatmap-container {
+            display: grid;
+            grid-template-columns: auto;
+            grid-gap: 1px;
+        }
+        .heatmap-row {
+            display: flex;
+        }
+        .heatmap-cell, .heatmap-label {
+            width: 60px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            box-sizing: border-box;
+        }
+        .heatmap-label {
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
+        .corner-label {
+            width: 80px; /* 稍微宽一点，适应文本 */
+        }
+        .legend {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .legend-title {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .legend-container {
+            display: flex;
+            align-items: center;
+        }
+        .legend-gradient {
+            width: 300px;
+            height: 20px;
+            background: linear-gradient(to right, 
+                hsl(240, 100%, 50%),  /* 蓝色 - 低值 */
+                hsl(180, 100%, 50%),  /* 青色 */
+                hsl(120, 100%, 50%),  /* 绿色 */
+                hsl(60, 100%, 50%),   /* 黄色 */
+                hsl(0, 100%, 50%)     /* 红色 - 高值 */
+            );
+            margin-right: 10px;
+            border: 1px solid #ccc;
+        }
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            width: 300px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>C2C Latency Visualizer</h1>
+    <p>Paste your C2C latency data (comma-separated matrix format) below:</p>
+
+    <textarea id="dataInput" placeholder="Paste your data here..."></textarea>
+    <br>
+    <button onclick="visualizeData()">Visualize</button>
+
+    <div id="heatmap"></div>
+
+    <script>
+        function visualizeData() {
+            const dataString = document.getElementById('dataInput').value.trim();
+            if (!dataString) {
+                alert("Please paste your data into the text area first.");
+                return;
+            }
+
+            try {
+                const rows = dataString.split('\n');
+                const zData = rows.map(row => 
+                    row.split(',').map(val => {
+                        const cleanedVal = val.trim().toLowerCase();
+                        if (cleanedVal === 'x' || isNaN(parseFloat(cleanedVal))) {
+                            return null; 
+                        }
+                        return parseFloat(cleanedVal);
+                    })
+                );
+
+                const coreCount = zData.length;
+                const labels = Array.from({length: coreCount}, (_, i) => `Core ${i}`);
+                
+                // Find min and max values for color scaling
+                let minVal = Infinity;
+                let maxVal = -Infinity;
+                
+                for (let i = 0; i < zData.length; i++) {
+                    for (let j = 0; j < zData[i].length; j++) {
+                        if (zData[i][j] !== null) {
+                            minVal = Math.min(minVal, zData[i][j]);
+                            maxVal = Math.max(maxVal, zData[i][j]);
+                        }
+                    }
+                }
+                
+                if (minVal === Infinity) minVal = 0;
+                if (maxVal === -Infinity) maxVal = 100;
+                
+                // Generate the heatmap HTML
+                const heatmapContainer = document.createElement('div');
+                heatmapContainer.className = 'heatmap-container';
+                
+                // Title
+                const titleDiv = document.createElement('h2');
+                titleDiv.textContent = 'Core-to-Core (C2C) Latency Heatmap';
+                heatmapContainer.appendChild(titleDiv);
+                
+                // Header row with target core labels
+                const headerRow = document.createElement('div');
+                headerRow.className = 'heatmap-row';
+                
+                // Empty cell for the corner
+                const cornerCell = document.createElement('div');
+                cornerCell.className = 'heatmap-label corner-label';
+                cornerCell.textContent = 'Source\\Target';
+                headerRow.appendChild(cornerCell);
+                
+                // Add target core labels
+                for (let j = 0; j < labels.length; j++) {
+                    const labelCell = document.createElement('div');
+                    labelCell.className = 'heatmap-label';
+                    labelCell.textContent = labels[j];
+                    headerRow.appendChild(labelCell);
+                }
+                
+                heatmapContainer.appendChild(headerRow);
+                
+                // Data rows
+                for (let i = 0; i < zData.length; i++) {
+                    const row = document.createElement('div');
+                    row.className = 'heatmap-row';
+                    
+                    // Source core label
+                    const labelCell = document.createElement('div');
+                    labelCell.className = 'heatmap-label corner-label';
+                    labelCell.textContent = labels[i];
+                    row.appendChild(labelCell);
+                    
+                    // Data cells
+                    for (let j = 0; j < zData[i].length; j++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'heatmap-cell';
+                        
+                        const value = zData[i][j];
+                        
+                        if (value !== null) {
+                            // Calculate color based on value
+                            const normalizedValue = (value - minVal) / (maxVal - minVal);
+                            const hue = 240 * (1 - normalizedValue); // 240 is blue, 0 is red
+                            cell.style.backgroundColor = `hsl(${hue}, 100%, 50%)`;
+                            
+                            // Set text color based on background brightness
+                            cell.style.color = normalizedValue > 0.5 ? 'white' : 'black';
+                            cell.textContent = value;
+                        } else {
+                            cell.style.backgroundColor = '#f0f0f0';
+                            cell.textContent = 'X';
+                        }
+                        
+                        row.appendChild(cell);
+                    }
+                    
+                    heatmapContainer.appendChild(row);
+                }
+                
+                // Add legend
+                const legendDiv = document.createElement('div');
+                legendDiv.className = 'legend';
+                
+                const legendTitle = document.createElement('div');
+                legendTitle.className = 'legend-title';
+                legendTitle.textContent = 'Latency (ns)';
+                legendDiv.appendChild(legendTitle);
+                
+                const legendContainer = document.createElement('div');
+                legendContainer.className = 'legend-container';
+                
+                const legendGradient = document.createElement('div');
+                legendGradient.className = 'legend-gradient';
+                legendContainer.appendChild(legendGradient);
+                
+                legendDiv.appendChild(legendContainer);
+                
+                const legendLabels = document.createElement('div');
+                legendLabels.className = 'legend-labels';
+                
+                const minLabel = document.createElement('span');
+                minLabel.textContent = `${minVal.toFixed(1)} (Low)`;
+                legendLabels.appendChild(minLabel);
+                
+                const maxLabel = document.createElement('span');
+                maxLabel.textContent = `${maxVal.toFixed(1)} (High)`;
+                legendLabels.appendChild(maxLabel);
+                
+                legendDiv.appendChild(legendLabels);
+                heatmapContainer.appendChild(legendDiv);
+                
+                // Clear previous heatmap and add new one
+                const heatmapDiv = document.getElementById('heatmap');
+                heatmapDiv.innerHTML = '';
+                heatmapDiv.appendChild(heatmapContainer);
+                
+            } catch (error) {
+                alert("Failed to parse data. Please ensure it is in the correct comma-separated matrix format.");
+                console.error(error);
+            }
+        }
+    </script>
+
+</body>
+</html>
