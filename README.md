@@ -26,7 +26,3 @@ This is a simple, single-page HTML tool for visualizing core-to-core (C2C) laten
 
 3.  **Visualize:** Click the "Visualize" button.
 4.  **Analyze:** A heatmap will be generated below the button, showing the latency between each pair of cores. Hover over the cells to see the exact values. The color legend at the bottom indicates the scale of latency values (in nanoseconds).
-
-## How It Works
-
-The tool is built with plain HTML, CSS, and JavaScript. When you click "Visualize", the JavaScript code parses the input data, calculates the range of latency values, and dynamically generates HTML `div` elements to create the heatmap grid. The color of each cell is determined by its latency value, normalized across the range of your data.
