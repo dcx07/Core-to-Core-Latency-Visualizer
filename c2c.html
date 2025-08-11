@@ -62,7 +62,12 @@
             box-shadow: inset 0 0 0 2px rgba(255,255,255,0.5);
         }
         .corner-label {
-            width: 80px; /* 稍微宽一点，适应文本 */
+            /* was width: 80px; */
+            width: 120px;
+            flex: 0 0 120px; /* prevent flex shrink so text remains visible */
+            text-align: center; /* keep centered, adjust if you prefer left */
+            /* optional: allow wrapping if needed */
+            /* white-space: normal; */
         }
         .legend {
             margin-top: 20px;
